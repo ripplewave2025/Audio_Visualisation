@@ -1,0 +1,423 @@
+:root {
+  color-scheme: dark;
+  --bg: #07060c;
+  --panel: rgba(12, 10, 22, 0.78);
+  --border: rgba(255, 60, 140, 0.35);
+  --accent: #ff2d6a;
+  --cyan: #2de2e6;
+  --text: #f2eef8;
+  --muted: #9a90a8;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #05040a;
+}
+
+/* Full-viewport stage — centers the aspect-locked canvas */
+#stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 0;
+  background: #05040a;
+}
+
+#c {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #12081c;
+  /* subtle edge so the 9:16 frame is visible even before first paint */
+  box-shadow: 0 0 0 1px rgba(255, 45, 106, 0.25), 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+#ui {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: min(320px, 92vw);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 10;
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+#ui > * {
+  pointer-events: auto;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logo {
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-size: 1.05rem;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(255, 45, 106, 0.55);
+}
+
+.tag {
+  font-size: 0.72rem;
+  color: var(--cyan);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  backdrop-filter: blur(10px);
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+}
+
+.mode-btn:hover {
+  border-color: rgba(45, 226, 230, 0.45);
+  background: rgba(45, 226, 230, 0.08);
+}
+
+.mode-btn.active {
+  border-color: var(--accent);
+  background: rgba(255, 45, 106, 0.16);
+  box-shadow: 0 0 16px rgba(255, 45, 106, 0.22);
+}
+
+.mode-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.mode-desc {
+  font-size: 0.62rem;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+.file-btn {
+  display: inline-block;
+  margin: 0 6px 6px 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255, 45, 106, 0.12);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.file-btn:hover {
+  background: rgba(255, 45, 106, 0.28);
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.transport button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #15101f;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#seek {
+  flex: 1;
+}
+
+#timeLabel {
+  font-size: 0.7rem;
+  color: var(--muted);
+  min-width: 72px;
+  text-align: right;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.row input {
+  flex: 1;
+}
+
+.layer-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.layer-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  font-size: 0.72rem;
+}
+
+.layer-item .name {
+  grid-column: 1 / -1;
+  color: var(--cyan);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.layer-item label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.layer-item button {
+  justify-self: end;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+}
+
+.export-panel select,
+.export-panel button {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #120e1a;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#recordStatus {
+  font-size: 0.72rem;
+  color: var(--cyan);
+}
+
+/* FL Studio & Filmora UI Enhancements */
+.preset-pills {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pill-btn {
+  flex: 1;
+  min-width: 60px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(0, 243, 255, 0.08);
+  color: var(--cyan);
+  font-size: 0.65rem;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.pill-btn:hover, .pill-btn.active {
+  background: var(--cyan);
+  color: #000;
+  font-weight: 700;
+}
+
+.eq-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.eq-grid label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.title-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.title-editor input, .title-editor select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #120e1a;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.row-flex {
+  display: flex;
+  gap: 6px;
+}
+
+.row-flex select {
+  flex: 1;
+}
+
+.waveform-box {
+  width: 100%;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 6px 0;
+  overflow: hidden;
+}
+
+#waveformCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Filmora Video Filter FX Classes */
+#stage.filter-vhs {
+  filter: contrast(1.15) saturate(1.3) hue-rotate(-5deg);
+}
+
+#stage.filter-grain {
+  filter: contrast(1.2) brightness(0.95) sepia(0.2);
+}
+
+#stage.filter-cyberpunk {
+  filter: contrast(1.25) saturate(1.5) hue-rotate(15deg);
+}
+
+#stage.filter-retro {
+  filter: sepia(0.4) saturate(1.4) contrast(1.1);
+}
+
+.meter {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+  transition: width 40ms linear;
+}
+
+.bar.bpm {
+  background: transparent;
+  overflow: visible;
+}
+
+.bar.bpm b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 0.68rem;
+  color: var(--muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.hint code {
+  color: var(--cyan);
+}
+
+/* Letterbox frame when export aspect is locked */
+body.aspect-lock #c {
+  object-fit: contain;
+}

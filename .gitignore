@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/uploads/*
+!backend/uploads/.gitkeep
+.DS_Store
+*.webm
+*.log
+.env
+frontend/dist/
+# Keep vendor/ + viz-kits/ tracked (asset kits for automation)
+# Nested repo metadata is stripped by scripts/clone-viz-vendor.ps1

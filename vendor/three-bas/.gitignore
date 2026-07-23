@@ -1,0 +1,7 @@
+_reference/
+node_modules/
+bower_components/
+.DS_STORE
+.idea/
+docs
+.npmrc

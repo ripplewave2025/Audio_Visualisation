@@ -1,0 +1,29 @@
+{
+  "name": "three.proton.js",
+  "version": "0.2.3",
+  "description": "three.proton is a magical 3d particle engine using [three.js]",
+  "main": "./build/three.proton.min.js",
+  "directories": {
+    "example": "example",
+    "lib": "lib"
+  },
+  "scripts": {
+    "build": "cd ./build && node build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drawcall/three.proton.git"
+  },
+  "keywords": [
+    "particle",
+    "three.js",
+    "threejs",
+    "3d-particle"
+  ],
+  "author": "drawcall",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/drawcall/three.proton/issues"
+  },
+  "homepage": "https://github.com/drawcall/three.proton#readme"
+}

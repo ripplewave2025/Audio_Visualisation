@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>THREE.js BufferAnimationSystem</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: monospace;
+        background-image: radial-gradient(#2e141e, #0e0609);
+      }
+      .player_container {
+        position: absolute;
+        z-index: 0;
+        left: 12px;
+        bottom: 0;
+        display: block;
+        width: 100%;
+      }
+
+      #player {
+        width: 240px;
+        margin: 10px 0;
+        display: block;
+      }
+
+      #audioInput {
+        width: 220px;
+        margin: 0;
+        padding: 4px 10px;
+        display: block;
+        outline: none;
+        border: none;
+      }
+
+      #sc_img {
+        width: 90px;
+      }
+    </style>
+</head>
+<body>
+<div id="three-container"></div>
+
+<div class="player_container">
+  <audio id="player" controls="" autoplay="false" preload="preload" autobuffer="autobuffer" src=""></audio>
+</div>
+
+<script src="../_lib/TweenMax.min.js"></script>
+<script src="https://unpkg.com/three/build/three.js"></script>
+<script src="https://unpkg.com/three@0.144.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../../dist/bas.js"></script>
+<script src="../_js/utils.js"></script>
+<script src="../_js/root.js"></script>
+
+<script src="main.js"></script>
+</body>
+</html>

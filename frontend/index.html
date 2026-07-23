@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DJ Caat — Phonk Hyper-Fluid Fractal</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Stage centers the 9:16 (or other) canvas letterbox -->
+      <div id="stage">
+        <canvas id="c"></canvas>
+      </div>
+      <div id="ui">
+        <header class="brand">
+          <span class="logo">DJ CAAT</span>
+          <span class="tag">Phonk Visual Engine</span>
+        </header>
+
+        <section class="panel mode-panel">
+          <h2>Visual Mode</h2>
+          <div class="mode-grid" id="modeGrid" role="radiogroup" aria-label="Visual Mode">
+            <button type="button" class="mode-btn active" data-mode="fractal" title="Phonk Hyper-Fluid Fractal">
+              <span class="mode-name">Phonk Fractal</span>
+              <span class="mode-desc">4D Mandelbulb · fluid mist</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="singularity" title="Stable Singularity Black Hole">
+              <span class="mode-name">Singularity</span>
+              <span class="mode-desc">Black Hole · Accretion Disk</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="particles" title="Sci-Fi Particles">
+              <span class="mode-name">Sci-Fi Particles</span>
+              <span class="mode-desc">Neon trails · 808 explosions</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="earth" title="Dark Earth / Orbital">
+              <span class="mode-name">Dark Earth</span>
+              <span class="mode-desc">Atmosphere · night lights · ring</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="tunnel" title="Cyber Tunnel">
+              <span class="mode-name">Cyber Tunnel</span>
+              <span class="mode-desc">Infinite neon · BPM speed</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="life" title="Particle Life math">
+              <span class="mode-name">Particle Life</span>
+              <span class="mode-desc">Attraction math · species</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="geometry" title="Geometry Light">
+              <span class="mode-name">Geometry Light</span>
+              <span class="mode-desc">SDF forms · orbit sparks</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel audio-editor-panel">
+          <h2>FL Studio · Audio & Tempo DSP</h2>
+          <div class="preset-pills">
+            <button type="button" class="pill-btn" id="presetSlowed">Slowed 0.85x</button>
+            <button type="button" class="pill-btn" id="presetDrift">Drift 0.92x</button>
+            <button type="button" class="pill-btn" id="presetNormal">Normal 1.0x</button>
+            <button type="button" class="pill-btn" id="presetNightcore">Nightcore 1.25x</button>
+          </div>
+          <label class="row">
+            Tempo Speed <span id="tempoVal">1.0x</span>
+            <input type="range" id="tempoSlider" min="0.5" max="2.0" step="0.01" value="1.0" />
+          </label>
+          <label class="row">
+            808 Saturator <span id="satVal">0.0</span>
+            <input type="range" id="satSlider" min="0" max="1" step="0.02" value="0.0" />
+          </label>
+          <div class="eq-grid">
+            <label>Low <input type="range" id="eqLow" min="-12" max="12" step="0.5" value="0" /></label>
+            <label>Mid <input type="range" id="eqMid" min="-12" max="12" step="0.5" value="0" /></label>
+            <label>High <input type="range" id="eqHigh" min="-12" max="12" step="0.5" value="0" /></label>
+          </div>
+          <label class="row">
+            Lowpass Filter
+            <input type="range" id="lpfSlider" min="500" max="20000" step="100" value="20000" />
+          </label>
+        </section>
+
+        <section class="panel media-panel">
+          <h2>Media & Filmora Titles</h2>
+          <div class="file-btns">
+            <label class="file-btn">
+              Audio
+              <input type="file" id="audioFile" accept="audio/*" hidden />
+            </label>
+            <label class="file-btn">
+              Video
+              <input type="file" id="videoFile" accept="video/*" hidden />
+            </label>
+            <label class="file-btn">
+              Image
+              <input type="file" id="imageFile" accept="image/*" hidden />
+            </label>
+          </div>
+
+          <div class="title-editor">
+            <input type="text" id="inputTitle" placeholder="Main Title (e.g. DJ CAAT)" value="DJ CAAT" />
+            <input type="text" id="inputSub" placeholder="Subtitle (e.g. PHONK DRIFT)" value="PHONK DRIFT" />
+            <div class="row-flex">
+              <select id="selectVideoFilter">
+                <option value="none">Normal Video</option>
+                <option value="vhs">VHS Glitch FX</option>
+                <option value="grain">Film Grain FX</option>
+                <option value="cyberpunk">Cyberpunk LUT</option>
+                <option value="retro">Retro Neon</option>
+              </select>
+              <select id="selectTextAnim">
+                <option value="pulse">Pulse Beat</option>
+                <option value="bounce">Bounce Beat</option>
+                <option value="static">Static Text</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="waveform-box">
+            <canvas id="waveformCanvas" width="300" height="36"></canvas>
+          </div>
+
+          <div class="transport">
+            <button type="button" id="btnPlay" title="Play/Pause">▶</button>
+            <button type="button" id="btnStop" title="Stop">■</button>
+            <input type="range" id="seek" min="0" max="1000" value="0" />
+            <span id="timeLabel">0:00 / 0:00</span>
+          </div>
+          <label class="row">
+            Master Volume
+            <input type="range" id="volume" min="0" max="1" step="0.01" value="0.9" />
+          </label>
+          <div id="layerList" class="layer-list"></div>
+        </section>
+
+        <section class="panel export-panel">
+          <h2>Instagram Export</h2>
+          <select id="aspect">
+            <option value="9:16" selected>9:16 Reels</option>
+            <option value="1:1">1:1 Square</option>
+            <option value="16:9">16:9 Landscape</option>
+          </select>
+          <button type="button" id="btnRecord">Record WebM</button>
+          <button type="button" id="btnStill">Save Still PNG</button>
+          <span id="recordStatus"></span>
+        </section>
+
+        <section class="panel meters">
+          <h2>Live meters</h2>
+          <div class="meter"><span>808</span><div class="bar"><i id="mBass"></i></div></div>
+          <div class="meter"><span>Pitch</span><div class="bar"><i id="mPitch"></i></div></div>
+          <div class="meter"><span>Hats</span><div class="bar"><i id="mHat"></i></div></div>
+          <div class="meter"><span>BPM</span><div class="bar bpm"><b id="mBpm">—</b></div></div>
+        </section>
+
+        <p class="hint">
+          Switch <strong>Visual Mode</strong> anytime — audio keeps playing.
+          Mode-specific sliders appear in the top-right GUI. Default export is
+          <strong>9:16</strong>. Backend DSP optional on :8000.
+        </p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

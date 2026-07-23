@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "project": "dj-caat-phonk-visualizer",
+  "description": "Machine-readable catalog of vendored math/geometry/physics/particle kits for automated visual modes",
+  "updated": "2026-07-23",
+  "kits": [
+    {
+      "id": "particle-life",
+      "title": "Particle Life",
+      "kind": ["math", "physics", "particles"],
+      "vendorPath": "vendor/particle-life",
+      "ready": {
+        "examples": [
+          "viz-kits/ready/examples/particle_life.html",
+          "viz-kits/ready/examples/particle_life_3d.html",
+          "viz-kits/ready/examples/particle_life.py"
+        ],
+        "presets": "viz-kits/data/particle-life-models/"
+      },
+      "audioHooks": {
+        "bass808": "scale attraction matrix strength",
+        "hat": "increase species noise / mutation",
+        "bpm": "step simulation phase"
+      },
+      "visualModeId": "life",
+      "status": "integrated"
+    },
+    {
+      "id": "three-proton",
+      "title": "Three.Proton particle engine",
+      "kind": ["particles", "3d", "forces", "emitters"],
+      "vendorPath": "vendor/three.proton",
+      "ready": {
+        "lib": [
+          "viz-kits/ready/lib/three.proton.js",
+          "viz-kits/ready/lib/three.proton.min.js"
+        ],
+        "textures": [
+          "viz-kits/ready/textures/dot.png",
+          "viz-kits/ready/textures/snow.png"
+        ],
+        "examples": "vendor/three.proton/example/"
+      },
+      "behaviours": [
+        "Gravity", "Attraction", "Repulsion", "Collision",
+        "Spring", "RandomDrift", "Force", "Color", "Scale", "Rotate"
+      ],
+      "zones": ["PointZone", "SphereZone", "BoxZone", "MeshZone", "LineZone"],
+      "visualModeId": null,
+      "status": "library-ready",
+      "importHint": "Copy lib into frontend/public/vendor or import script tag; Proton needs THREE global or adapt ESM."
+    },
+    {
+      "id": "webgl-wind",
+      "title": "WebGL Wind field",
+      "kind": ["physics", "particles", "gpu", "fields"],
+      "vendorPath": "vendor/webgl-wind",
+      "ready": {
+        "lib": ["viz-kits/ready/lib/wind-gl.js"],
+        "shaders": "viz-kits/ready/shaders/wind/",
+        "sampleData": "vendor/webgl-wind/demo/wind/"
+      },
+      "audioHooks": {
+        "bass808": "wind speed scale",
+        "onset808": "particle injection burst",
+        "hat": "turbulence / drop rate"
+      },
+      "visualModeId": null,
+      "status": "library-ready"
+    },
+    {
+      "id": "three-bas",
+      "title": "THREE Buffer Animation System",
+      "kind": ["geometry", "3d", "light", "gpgpu", "audio-visual"],
+      "vendorPath": "vendor/three-bas",
+      "ready": {
+        "lib": [
+          "viz-kits/ready/lib/bas.js",
+          "viz-kits/ready/lib/bas.module.js",
+          "viz-kits/ready/lib/bas.min.js"
+        ],
+        "glsl": "viz-kits/ready/shaders/bas-glsl/",
+        "examples": {
+          "audio_visual": "vendor/three-bas/examples/audio_visual/",
+          "points_animation": "vendor/three-bas/examples/points_animation/",
+          "gpgpu": "vendor/three-bas/examples/gpgpu/",
+          "crystal_triangles": "vendor/three-bas/examples/crystal_triangles/",
+          "motion_smear": "vendor/three-bas/examples/motion_smear/"
+        }
+      },
+      "visualModeId": "geometry",
+      "status": "inspired-integrated"
+    }
+  ],
+  "builtInModes": [
+    "fractal",
+    "particles",
+    "earth",
+    "tunnel",
+    "life",
+    "geometry"
+  ],
+  "automation": {
+    "syncScript": "scripts/sync-viz-kits.ps1",
+    "cloneScript": "scripts/clone-viz-vendor.ps1",
+    "howToAddMode": "viz-kits/recipes/ADD_MODE.md"
+  }
+}
