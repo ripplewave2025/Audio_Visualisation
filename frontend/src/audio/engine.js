@@ -39,6 +39,8 @@ export class AudioEngine {
     this._lastOnset = 0;
     this._beatPhaseClock = 0;
     this._listeners = new Set();
+    this._busUnsub = null;
+    this._lastSatAmount = -1;
   }
 
   async ensureContext() {
@@ -143,10 +145,12 @@ export class AudioEngine {
 
     this.applyDspParams();
 
-    // Listen for bus changes to update DSP in real-time
-    this.bus.onChange(() => this.applyDspParams());
+    // Single bus subscription (avoid leaks on re-load)
+    if (!this._busUnsub) {
+      this._busUnsub = this.bus.onChange(() => this.applyDspParams());
+    }
 
-    // Backend DSP (optional)
+    // Backend DSP optional — skip on static hosts (Vercel) unless user enables
     if (this.bus.params.useBackendDsp) {
       try {
         this.metrics = await this._analyzeBackend(file);
@@ -171,13 +175,18 @@ export class AudioEngine {
     if (this.lpf) this.lpf.frequency.value = p.filterLpf ?? 20000;
     if (this.hpf) this.hpf.frequency.value = p.filterHpf ?? 20;
     if (this.saturator) {
-      this.saturator.curve = this._makeDistortionCurve(p.bassBoost || 0);
+      const amt = p.bassBoost || 0;
+      // Rebuild curve only when amount changes (44100 samples was a hitch)
+      if (amt !== this._lastSatAmount) {
+        this.saturator.curve = this._makeDistortionCurve(amt);
+        this._lastSatAmount = amt;
+      }
     }
   }
 
   _makeDistortionCurve(amount) {
     const k = amount * 50;
-    const n_samples = 44100;
+    const n_samples = 256; // enough for WaveShaper; 44k was pure waste
     const curve = new Float32Array(n_samples);
     const deg = Math.PI / 180;
     for (let i = 0; i < n_samples; ++i) {

@@ -7,7 +7,7 @@ const STORAGE_KEY = 'dj-caat-phonk-params-v2';
 
 /** @typedef {'sin'|'square'|'tri'|'abs'} FoldFormula */
 /** @typedef {'9:16'|'1:1'|'16:9'} AspectPreset */
-/** @typedef {'fractal'|'particles'|'earth'|'tunnel'|'life'|'geometry'} VisualMode */
+/** @typedef {'fractal'|'singularity'|'particles'|'earth'|'tunnel'|'life'|'geometry'} VisualMode */
 
 export const FOLD_MODE_INDEX = { sin: 0, square: 1, tri: 2, abs: 3 };
 
@@ -25,6 +25,10 @@ export function createDefaultParams() {
   return {
     // Visual mode
     visualMode: /** @type {VisualMode} */ ('fractal'),
+
+    // Performance (Vercel / mobile)
+    renderQuality: 0.7, // target quality ceiling 0.25–1
+    adaptiveQuality: true, // auto drop DPR/loops if FPS sags
 
     // Audio Editor & Tempo Optimizer (FL Studio Style)
     tempoSpeed: 1.0,        // Playback speed / stretch (0.5x - 2.0x)
@@ -60,7 +64,7 @@ export function createDefaultParams() {
     foldFormula: /** @type {FoldFormula} */ ('sin'),
     foldStrength: 0.85,
     mandelPower: 8,
-    mandelIter: 8,
+    mandelIter: 7,
     warpStrength: 0.35,
     fractalScale: 1.0,
 
@@ -84,8 +88,8 @@ export function createDefaultParams() {
     mistDensity: 0.45,
 
     // Sci-Fi Particles
-    particleDensity: 0.65,
-    trailLength: 0.55,
+    particleDensity: 0.55,
+    trailLength: 0.45,
     explosionForce: 1.1,
     turbulence: 0.45,
     colorSpeed: 0.6,
@@ -110,11 +114,11 @@ export function createDefaultParams() {
     neonIntensity: 1.15,
 
     // Particle Life (math / physics kit)
-    lifeDensity: 0.7,
+    lifeDensity: 0.55,
     lifeForce: 1.0,
     lifeChaos: 0.35,
     lifeSpecies: 4,
-    lifeTrail: 0.5,
+    lifeTrail: 0.4,
 
     // Geometry + light
     geoMorph: 0.35,
@@ -128,8 +132,8 @@ export function createDefaultParams() {
     exportFps: 30,
     exportBitrate: 8_000_000,
 
-    // DSP backend
-    useBackendDsp: true,
+    // DSP backend — off by default (Vercel is frontend-only; live WebAudio is fine)
+    useBackendDsp: false,
     backendUrl: '/api',
   };
 }

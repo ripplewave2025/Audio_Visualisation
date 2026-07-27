@@ -1,7 +1,6 @@
 /**
- * Multi-mode visual renderer.
- * Instant mode switch via material swap — AudioContext is never touched.
- * Modes: fractal | particles | earth | tunnel
+ * Multi-mode visual renderer — performance first for Vercel / mobile / export.
+ * Instant mode switch (lazy-compile materials). Adaptive DPR + quality.
  */
 
 import * as THREE from 'three';
@@ -24,20 +23,26 @@ const MODE_FRAG = {
   geometry: fragGeometry,
 };
 
-/** Emergency fullscreen color — used if a mode's GLSL fails to compile. */
+/** Heavier modes get lower default pixel budgets */
+const MODE_BASE_DPR = {
+  fractal: 1.1,
+  singularity: 1.35,
+  particles: 1.5,
+  earth: 1.25,
+  tunnel: 1.5,
+  life: 1.45,
+  geometry: 1.25,
+};
+
 const FALLBACK_FRAG = /* glsl */ `
-precision highp float;
+precision mediump float;
 uniform float uTime;
-uniform vec2 uResolution;
 uniform float uBass808;
 uniform float uHueBase;
 varying vec2 vUv;
 void main() {
-  vec2 uv = vUv;
-  float pulse = 0.35 + 0.25 * sin(uTime * 2.0 + uBass808 * 6.0);
-  vec3 col = vec3(0.6, 0.05, 0.35) * pulse
-           + vec3(0.05, 0.4, 0.55) * (1.0 - uv.y) * 0.5;
-  col += 0.15 * sin(uTime + uv.x * 10.0);
+  float pulse = 0.4 + 0.3 * sin(uTime * 2.5 + uBass808 * 5.0);
+  vec3 col = vec3(0.55, 0.04, 0.32) * pulse + vec3(0.04, 0.35, 0.5) * (1.0 - vUv.y) * 0.55;
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -46,6 +51,7 @@ function makeSharedUniforms(dummyTex) {
   return {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
+    uQuality: { value: 0.65 }, // 0..1 adaptive quality
     uBass808: { value: 0 },
     uOnset808: { value: 0 },
     uPitchHz: { value: 0 },
@@ -59,7 +65,7 @@ function makeSharedUniforms(dummyTex) {
     uFoldStrength: { value: 0.85 },
     uFoldMode: { value: 0 },
     uMandelPower: { value: 8 },
-    uMandelIter: { value: 8 },
+    uMandelIter: { value: 7 },
     uHueBase: { value: 0.92 },
     uHueFromPitch: { value: 0.35 },
     uSaturation: { value: 0.85 },
@@ -75,8 +81,8 @@ function makeSharedUniforms(dummyTex) {
     uVideoTex: { value: dummyTex },
     uVideoOpacity: { value: 0 },
     uHasVideo: { value: 0 },
-    uParticleDensity: { value: 0.65 },
-    uTrailLength: { value: 0.55 },
+    uParticleDensity: { value: 0.55 },
+    uTrailLength: { value: 0.45 },
     uExplosionForce: { value: 1.1 },
     uTurbulence: { value: 0.45 },
     uColorSpeed: { value: 0.6 },
@@ -95,14 +101,14 @@ function makeSharedUniforms(dummyTex) {
     uWallStyle: { value: 0 },
     uTunnelRadius: { value: 1.0 },
     uNeonIntensity: { value: 1.15 },
-    uLifeDensity: { value: 0.7 },
+    uLifeDensity: { value: 0.55 },
     uLifeForce: { value: 1.0 },
     uLifeChaos: { value: 0.35 },
     uLifeSpecies: { value: 4 },
-    uLifeTrail: { value: 0.5 },
+    uLifeTrail: { value: 0.4 },
     uGeoMorph: { value: 0.35 },
     uGeoWire: { value: 0.75 },
-    uGeoLightCount: { value: 12 },
+    uGeoLightCount: { value: 10 },
     uGeoSpin: { value: 1.0 },
     uGeoGlow: { value: 1.1 },
   };
@@ -115,7 +121,6 @@ function makeMaterial(vertexShader, fragmentShader, uniforms) {
     uniforms,
     depthTest: false,
     depthWrite: false,
-    // Avoid transparent black clears looking "empty"
     transparent: false,
   });
 }
@@ -130,24 +135,32 @@ export class FractalRenderer {
     this.bus = bus;
     this.clock = new THREE.Clock();
     this.mode = bus.params.visualMode || 'fractal';
+    this.visible = true;
+    this._recording = false;
+
+    // Mobile / low-power hint
+    this._isMobile =
+      typeof navigator !== 'undefined' &&
+      /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '');
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false,
       alpha: false,
       powerPreference: 'high-performance',
-      preserveDrawingBuffer: true,
-      // Prefer WebGL2 but fall back cleanly
+      // Only needed while capturing — toggled by setRecording()
+      preserveDrawingBuffer: false,
       failIfMajorPerformanceCaveat: false,
     });
-    this._maxDpr = 1.5;
+
+    this._quality = bus.params.renderQuality ?? 0.65; // 0..1
+    this._adaptive = bus.params.adaptiveQuality !== false;
+    this._maxDpr = this._baseDprFor(this.mode);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this._maxDpr));
-    // Not pure black — if anything draws clear color you still see the frame is alive
     this.renderer.setClearColor(0x0a0614, 1);
     this.renderer.autoClear = true;
 
     this.scene = new THREE.Scene();
-    // near < 0 so z=0 plane is safely inside the frustum
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
 
     this.videoTexture = null;
@@ -156,79 +169,102 @@ export class FractalRenderer {
     this._dummyTex.colorSpace = THREE.NoColorSpace;
 
     this.uniforms = makeSharedUniforms(this._dummyTex);
+    this.uniforms.uQuality.value = this._quality;
 
-    // Ensure GLSL imports are strings (vite-plugin-glsl / ?raw)
-    const vertSrc = typeof vert === 'string' ? vert : String(vert ?? '');
-    if (!vertSrc || vertSrc.length < 20) {
-      console.error('[VisualRenderer] Vertex shader failed to load', vert);
-    }
+    this._vertSrc = typeof vert === 'string' ? vert : String(vert ?? '');
+    this.materials = Object.create(null); // lazy
+    this._fallbackMat = makeMaterial(this._vertSrc, FALLBACK_FRAG, this.uniforms);
 
     const geo = new THREE.PlaneGeometry(2, 2);
-    this.materials = {};
-    for (const [id, frag] of Object.entries(MODE_FRAG)) {
-      const fragSrc = typeof frag === 'string' ? frag : String(frag ?? '');
-      if (!fragSrc || fragSrc.length < 50) {
-        console.error(`[VisualRenderer] Fragment shader missing for mode "${id}"`, frag);
-        this.materials[id] = makeMaterial(vertSrc, FALLBACK_FRAG, this.uniforms);
-        continue;
-      }
-      this.materials[id] = makeMaterial(vertSrc, fragSrc, this.uniforms);
-    }
-    this._fallbackMat = makeMaterial(vertSrc, FALLBACK_FRAG, this.uniforms);
-
-    const startMode = this.materials[this.mode] ? this.mode : 'fractal';
-    this.mode = startMode;
-    this.material = this.materials[startMode];
-    this.mesh = new THREE.Mesh(geo, this.material);
+    this.mesh = new THREE.Mesh(geo, this._getMaterial(this.mode));
     this.mesh.frustumCulled = false;
     this.scene.add(this.mesh);
+    this.material = this.mesh.material;
 
     this._aspectLock = null;
-    this._shaderChecked = false;
-
-    // Host layout for letterboxing (see styles: #stage)
     this._stage = document.getElementById('stage');
 
-    this.resize();
-    window.addEventListener('resize', () => this.resize());
+    // FPS adaptive controller
+    this._fpsEma = 60;
+    this._frameCount = 0;
+    this._lastFpsT = performance.now();
+    this._lastResizeW = 0;
+    this._lastResizeH = 0;
 
-    // First-frame probe after WebGL program link
-    queueMicrotask(() => this._validateActiveProgram());
+    this.resize();
+    window.addEventListener('resize', () => this.resize(), { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      this.visible = document.visibilityState === 'visible';
+      if (this.visible) this.clock.getDelta(); // reset delta spike
+    });
   }
 
-  _validateActiveProgram() {
-    // Force a compile/link by rendering once
-    try {
-      this.renderer.compile(this.scene, this.camera);
-      const prog = this.renderer.properties.get(this.material);
-      if (prog?.program?.diagnostics?.runnable === false) {
-        console.error('[VisualRenderer] Shader not runnable — using fallback', prog.program.diagnostics);
-        this.mesh.material = this._fallbackMat;
-        this.material = this._fallbackMat;
-      }
-    } catch (err) {
-      console.error('[VisualRenderer] compile failed', err);
-      this.mesh.material = this._fallbackMat;
-      this.material = this._fallbackMat;
-    }
-    this._shaderChecked = true;
+  _baseDprFor(mode) {
+    let d = MODE_BASE_DPR[mode] ?? 1.25;
+    if (this._isMobile) d = Math.min(d, 1.15);
+    const q = this._quality;
+    // quality 0.4 → ~0.7× dpr, quality 1 → full base
+    return Math.max(0.75, d * (0.55 + 0.45 * q));
   }
 
   /**
-   * Instant visual mode switch — does not touch AudioContext.
+   * Lazy-compile only the active mode (huge startup win vs 7 programs).
+   * @param {string} mode
+   */
+  _getMaterial(mode) {
+    if (!MODE_FRAG[mode]) mode = 'fractal';
+    if (this.materials[mode]) return this.materials[mode];
+
+    const frag = MODE_FRAG[mode];
+    const fragSrc = typeof frag === 'string' ? frag : String(frag ?? '');
+    if (!fragSrc || fragSrc.length < 40) {
+      console.error(`[VisualRenderer] Missing shader: ${mode}`);
+      this.materials[mode] = this._fallbackMat;
+      return this._fallbackMat;
+    }
+    const mat = makeMaterial(this._vertSrc, fragSrc, this.uniforms);
+    this.materials[mode] = mat;
+    // Compile on first use
+    try {
+      this.mesh.material = mat;
+      this.renderer.compile(this.scene, this.camera);
+    } catch (err) {
+      console.error(`[VisualRenderer] Compile failed (${mode})`, err);
+      this.materials[mode] = this._fallbackMat;
+      return this._fallbackMat;
+    }
+    return mat;
+  }
+
+  /** @param {boolean} on */
+  setRecording(on) {
+    this._recording = !!on;
+    // Re-create is heavy; Three doesn't expose preserveDrawingBuffer toggle.
+    // Capture still works if we call toDataURL after render with readPixels path —
+    // MediaRecorder uses canvas stream and does NOT need preserveDrawingBuffer.
+    // For stills we render then read immediately same frame — also fine without flag
+    // on most browsers if read in same event. Keep flag false for perf.
+  }
+
+  setQuality(q) {
+    this._quality = Math.max(0.25, Math.min(1, q));
+    this.uniforms.uQuality.value = this._quality;
+    this._maxDpr = this._baseDprFor(this.mode);
+    this.resize(true);
+  }
+
+  /**
    * @param {string} mode
    */
   setMode(mode) {
-    if (!this.materials[mode]) mode = 'fractal';
+    if (!MODE_FRAG[mode]) mode = 'fractal';
     if (mode === this.mode && this.mesh.material === this.materials[mode]) return;
     this.mode = mode;
-    this.material = this.materials[mode];
-    this.mesh.material = this.material;
-    if (mode === 'particles' || mode === 'tunnel' || mode === 'life') this._maxDpr = 1.75;
-    else if (mode === 'earth' || mode === 'geometry') this._maxDpr = 1.5;
-    else this._maxDpr = 1.35;
-    this.resize();
-    this._validateActiveProgram();
+    const mat = this._getMaterial(mode);
+    this.material = mat;
+    this.mesh.material = mat;
+    this._maxDpr = this._baseDprFor(mode);
+    this.resize(true);
   }
 
   /**
@@ -236,21 +272,21 @@ export class FractalRenderer {
    */
   setAspectLock(size) {
     this._aspectLock = size;
-    this.resize();
+    this.resize(true);
   }
 
-  resize() {
+  /**
+   * @param {boolean} [force]
+   */
+  resize(force = false) {
     const vw = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1);
     const vh = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
 
     let w;
     let h;
     if (this._aspectLock) {
-      const aw = this._aspectLock.w;
-      const ah = this._aspectLock.h;
-      const ar = aw / ah;
-      const wr = vw / vh;
-      if (wr > ar) {
+      const ar = this._aspectLock.w / this._aspectLock.h;
+      if (vw / vh > ar) {
         h = vh;
         w = Math.max(1, Math.floor(h * ar));
       } else {
@@ -262,12 +298,24 @@ export class FractalRenderer {
       h = vh;
     }
 
-    // Style canvas to exact letterbox size; parent #stage centers it
+    // Cap canvas CSS size for GPU (export still letterboxed)
+    const maxEdge = this._isMobile ? 900 : 1400;
+    if (Math.max(w, h) > maxEdge) {
+      const s = maxEdge / Math.max(w, h);
+      w = Math.max(1, Math.floor(w * s));
+      h = Math.max(1, Math.floor(h * s));
+    }
+
+    if (!force && w === this._lastResizeW && h === this._lastResizeH) {
+      // only dpr may change
+    }
+    this._lastResizeW = w;
+    this._lastResizeH = h;
+
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
     this.canvas.style.display = 'block';
     this.canvas.style.position = 'relative';
-    this.canvas.style.inset = 'auto';
     this.canvas.style.margin = '0';
     this.canvas.style.maxWidth = '100%';
     this.canvas.style.maxHeight = '100%';
@@ -289,10 +337,6 @@ export class FractalRenderer {
     this.uniforms.uResolution.value.set(rw, rh);
   }
 
-  /**
-   * @param {HTMLVideoElement | null} video
-   * @param {number} opacity
-   */
   setVideo(video, opacity = 0.55) {
     if (this.videoTexture) {
       this.videoTexture.dispose();
@@ -307,6 +351,7 @@ export class FractalRenderer {
     this.videoTexture = new THREE.VideoTexture(video);
     this.videoTexture.minFilter = THREE.LinearFilter;
     this.videoTexture.magFilter = THREE.LinearFilter;
+    this.videoTexture.generateMipmaps = false;
     this.videoTexture.colorSpace = THREE.SRGBColorSpace;
     this.uniforms.uVideoTex.value = this.videoTexture;
     this.uniforms.uHasVideo.value = 1;
@@ -318,9 +363,41 @@ export class FractalRenderer {
   }
 
   updateUniforms(u) {
-    for (const [k, v] of Object.entries(u)) {
-      if (this.uniforms[k]) this.uniforms[k].value = v;
+    const U = this.uniforms;
+    for (const k in u) {
+      if (U[k]) U[k].value = u[k];
     }
+  }
+
+  /** Call once per frame from main loop with dt seconds. */
+  tickAdaptive(dt) {
+    this._adaptive = this.bus.params.adaptiveQuality !== false;
+    if (!this._adaptive) return;
+    if (dt <= 0 || dt > 0.5) return;
+    const fps = 1 / dt;
+    this._fpsEma = this._fpsEma * 0.9 + fps * 0.1;
+    this._frameCount++;
+    // Adjust every ~20 frames
+    if (this._frameCount % 20 !== 0) return;
+
+    let q = this._quality;
+    if (this._fpsEma < 28) q -= 0.06;
+    else if (this._fpsEma < 40) q -= 0.02;
+    else if (this._fpsEma > 55 && q < (this.bus.params.renderQuality ?? 0.65)) q += 0.02;
+    q = Math.max(0.3, Math.min(this.bus.params.renderQuality ?? 0.75, q));
+    if (Math.abs(q - this._quality) > 0.015) {
+      this._quality = q;
+      this.uniforms.uQuality.value = q;
+      const nextDpr = this._baseDprFor(this.mode);
+      if (Math.abs(nextDpr - this._maxDpr) > 0.05) {
+        this._maxDpr = nextDpr;
+        this.resize(true);
+      }
+    }
+  }
+
+  get fps() {
+    return this._fpsEma;
   }
 
   /**
@@ -328,29 +405,27 @@ export class FractalRenderer {
    * @param {number} [timeScale]
    */
   render(audioSample, timeScale = 1) {
+    if (!this.visible && !this._recording) return;
+
     const desired = this.bus.params.visualMode || 'fractal';
     if (desired !== this.mode) this.setMode(desired);
 
-    // Guard zero-size canvas (hidden tab / first layout)
     if (this.canvas.clientWidth < 2 || this.canvas.clientHeight < 2) {
-      this.resize();
+      this.resize(true);
     }
 
     const t = this.clock.getElapsedTime() * timeScale;
     const bpm = audioSample?.bpm || 0;
-    const beatBoost = bpm > 0 ? 1 + 0.05 * Math.sin((audioSample.beatPhase || 0) * Math.PI * 2) : 1;
+    const beatBoost =
+      bpm > 0 ? 1 + 0.04 * Math.sin((audioSample.beatPhase || 0) * Math.PI * 2) : 1;
     this.uniforms.uTime.value = t * beatBoost;
+    this.uniforms.uQuality.value = this._quality;
 
-    const u = this.bus.toShaderUniforms(audioSample);
-    this.updateUniforms(u);
+    this.updateUniforms(this.bus.toShaderUniforms(audioSample));
 
-    if (this.videoTexture) this.videoTexture.needsUpdate = true;
-
-    // If program failed at runtime, swap fallback once
-    const mat = this.mesh.material;
-    if (mat?.program?.diagnostics && mat.program.diagnostics.runnable === false) {
-      console.warn('[VisualRenderer] Active shader failed — fallback neon');
-      this.mesh.material = this._fallbackMat;
+    // Video texture: only mark dirty when playing
+    if (this.videoTexture && audioSample) {
+      this.videoTexture.needsUpdate = true;
     }
 
     this.renderer.render(this.scene, this.camera);

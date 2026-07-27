@@ -9,9 +9,21 @@ export default defineConfig({
       include: ['**/*.glsl'],
       defaultExtension: 'glsl',
       warnDuplicatedImports: true,
-      compress: false,
+      compress: true,
     }),
   ],
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ['three'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

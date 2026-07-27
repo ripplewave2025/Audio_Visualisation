@@ -7,6 +7,7 @@ varying vec2 vUv;
 
 uniform float uTime;
 uniform vec2  uResolution;
+uniform float uQuality;
 uniform float uBass808;
 uniform float uOnset808;
 uniform float uPitchHz;
@@ -72,16 +73,16 @@ void main() {
   float pitchN = uPitchHz > 1.0 ? clamp((uPitchHz - 400.0) / 1600.0, 0.0, 1.0) : 0.0;
   float hue = fract(uHueBase + uHueFromPitch * pitchN * uPitchConf + uTime * uColorSpeed * 0.08);
 
-  // Particle budget: 24 base … 72 max (performance-safe)
-  int count = int(mix(24.0, 72.0, clamp(uParticleDensity, 0.0, 1.0)));
+  // Particle budget: density × quality (16..48)
+  float dens = clamp(uParticleDensity, 0.0, 1.0) * mix(0.55, 1.0, uQuality);
+  int count = int(mix(16.0, 48.0, dens));
   float explode = uOnset808 * uExplosionForce + uBass808 * uExplosionForce * 0.45;
   float sc = max(uSidechain, 0.25);
   float attract = uAttractRepel;
 
-  // Trail layers along motion (cheap multi-sample along velocity)
-  int trailSteps = int(clamp(floor(uTrailLength * 5.0) + 1.0, 1.0, 6.0));
+  int trailSteps = int(clamp(floor(uTrailLength * 3.0 * uQuality) + 1.0, 1.0, 4.0));
 
-  for (int i = 0; i < 72; i++) {
+  for (int i = 0; i < 48; i++) {
     if (i >= count) break;
     float id = float(i) + 1.0;
     vec3 rnd = hash13(id * 13.7);
@@ -116,7 +117,7 @@ void main() {
 
     vec3 neon = hsl2rgb(fract(hue + rnd.y * 0.2 + uHat * 0.05), clamp(uSaturation + 0.1, 0.0, 1.0), 0.55);
 
-    for (int t = 0; t < 6; t++) {
+    for (int t = 0; t < 4; t++) {
       if (t >= trailSteps) break;
       float ft = float(t) / float(max(trailSteps, 1));
       vec2 p = base - vel * ft * uTrailLength * 0.08;

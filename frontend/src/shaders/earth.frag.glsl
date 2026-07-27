@@ -57,7 +57,8 @@ float vnoise(vec2 p) {
 float fbm(vec2 p) {
   float v = 0.0;
   float a = 0.5;
-  for (int i = 0; i < 5; i++) {
+  // 4 octaves is enough for night/land; 5 was free cost
+  for (int i = 0; i < 4; i++) {
     v += a * vnoise(p);
     p *= 2.05;
     a *= 0.5;

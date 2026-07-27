@@ -34,6 +34,18 @@ export function buildGui(bus, hooks = {}) {
     /* ignore */
   }
 
+  // ── Performance ────────────────────────────────────────────────────────────
+  const perf = gui.addFolder('Performance');
+  perf
+    .add(p, 'renderQuality', 0.3, 1, 0.05)
+    .name('Quality ceiling')
+    .onChange((v) => {
+      bus.set('renderQuality', v);
+      // renderer picks this up via bus in tickAdaptive; force quality path via event
+      window.dispatchEvent(new CustomEvent('dj-caat-quality', { detail: v }));
+    });
+  perf.add(p, 'adaptiveQuality').name('Auto FPS adapt').onChange((v) => bus.set('adaptiveQuality', v));
+
   // ── Always visible ─────────────────────────────────────────────────────────
   const fft = gui.addFolder('FFT / Sidechain');
   fft.add(p, 'fftSmooth', 0, 0.99, 0.01).name('FFT smooth').onChange((v) => bus.set('fftSmooth', v));

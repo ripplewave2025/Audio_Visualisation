@@ -52,8 +52,10 @@ export class InstagramExporter {
   async startRecording() {
     if (this.recording) return;
     const canvas = this.renderer.domElement;
-    const fps = this.bus.params.exportFps || 30;
-    const bitrate = this.bus.params.exportBitrate || 8_000_000;
+    // Cap capture FPS for stable encode (30 is plenty for Reels)
+    const fps = Math.min(this.bus.params.exportFps || 30, 30);
+    const bitrate = this.bus.params.exportBitrate || 6_000_000;
+    this.renderer.setRecording?.(true);
 
     const stream = canvas.captureStream(fps);
 
@@ -89,6 +91,7 @@ export class InstagramExporter {
       URL.revokeObjectURL(url);
       this.onStatus('Recording saved');
       this.recording = false;
+      this.renderer.setRecording?.(false);
     };
     this.recorder.start(200);
     this.recording = true;

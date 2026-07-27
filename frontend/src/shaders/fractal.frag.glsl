@@ -19,6 +19,7 @@ varying vec2 vUv;
 
 uniform float uTime;
 uniform vec2  uResolution;
+uniform float uQuality; // 0..1 adaptive
 uniform float uBass808;
 uniform float uOnset808;
 uniform float uPitchHz;
@@ -141,7 +142,7 @@ float mandelbulbDE(vec3 pos, float power, int iters, out float trap) {
   float r = 0.0;
   trap = 1e10;
 
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < 12; i++) {
     if (i >= iters) break;
     r = length(z);
     if (r > 2.0) break;
@@ -176,20 +177,26 @@ float mapScene(vec3 p, out float trap) {
   // 808-driven domain fold / space bend
   q = domainFold(q, uFoldStrength, uFoldMode, max(uBass808, uOnset808));
 
-  int iters = int(clamp(uMandelIter, 4.0, 16.0));
+  // Cap iterations by quality for mobile / adaptive FPS
+  int iters = int(clamp(uMandelIter * mix(0.55, 1.0, uQuality), 4.0, 12.0));
   float d = mandelbulbDE(q, uMandelPower, iters, trap);
   return d * scale;
 }
 
 vec3 calcNormal(vec3 p) {
-  const float e = 0.0015;
-  float t;
-  float d = mapScene(p, t);
-  return normalize(vec3(
-    mapScene(p + vec3(e, 0, 0), t) - d,
-    mapScene(p + vec3(0, e, 0), t) - d,
-    mapScene(p + vec3(0, 0, e), t) - d
-  ));
+  // Tetrahedron normal — 4 map samples instead of 6 (faster)
+  const float e = 0.002;
+  float t0, t1, t2, t3;
+  const vec3 k0 = vec3(1, -1, -1);
+  const vec3 k1 = vec3(-1, -1, 1);
+  const vec3 k2 = vec3(-1, 1, -1);
+  const vec3 k3 = vec3(1, 1, 1);
+  return normalize(
+    k0 * mapScene(p + e * k0, t0) +
+    k1 * mapScene(p + e * k1, t1) +
+    k2 * mapScene(p + e * k2, t2) +
+    k3 * mapScene(p + e * k3, t3)
+  );
 }
 
 // HSL → RGB (pitch drives hue)
@@ -208,15 +215,16 @@ vec3 hsl2rgb(float h, float s, float l) {
   return rgb + m;
 }
 
-// Mist density along ray — hat forces push curl field
+// Mist density — single noise octave (curl is expensive; skip on low quality)
 float mistSample(vec3 p) {
-  vec3 flow = curlNoise(p * 0.55 + vec3(0.0, uTime * 0.15, uTime * 0.08));
-  // Hi-hat transient = explosive outward velocity (radial + curl)
-  flow += uHat * uFluidForce * normalize(p + 1e-3) * 1.5;
-  vec3 q = p + flow * (0.4 + uHat * uFluidForce);
-  float n = vnoise(q * 1.3 + uTime * 0.25);
-  n += 0.5 * vnoise(q * 2.7 - uTime * 0.4);
-  return uMistDensity * n * (0.35 + uHat * 1.8 + uBass808 * 0.4);
+  vec3 q = p;
+  if (uQuality > 0.55) {
+    vec3 flow = curlNoise(p * 0.55 + vec3(0.0, uTime * 0.15, uTime * 0.08));
+    flow += uHat * uFluidForce * normalize(p + 1e-3) * 1.2;
+    q = p + flow * (0.35 + uHat * uFluidForce * 0.8);
+  }
+  float n = vnoise(q * 1.4 + uTime * 0.25);
+  return uMistDensity * n * (0.35 + uHat * 1.6 + uBass808 * 0.35);
 }
 
 vec3 renderRay(vec2 uv) {
@@ -248,19 +256,21 @@ vec3 renderRay(vec2 uv) {
   float fov = uFov * (1.0 - uBpmZoom * zoom * 0.12);
   vec3 rd = normalize(uv.x * uu * fov + uv.y * vv * fov + 1.5 * ww);
 
-  // Raymarch
+  // Raymarch — step budget scales with quality (36..72)
   float t = 0.0;
   float trap = 1.0;
   float hit = 0.0;
   vec3 p = ro;
-  for (int i = 0; i < 96; i++) {
+  int maxSteps = int(mix(36.0, 72.0, uQuality));
+  for (int i = 0; i < 72; i++) {
+    if (i >= maxSteps) break;
     p = ro + rd * t;
     float d = mapScene(p, trap);
-    if (d < 0.0015 * t || t > 12.0) {
-      hit = d < 0.02 ? 1.0 : 0.0;
+    if (d < 0.002 * t || t > 10.0) {
+      hit = d < 0.025 ? 1.0 : 0.0;
       break;
     }
-    t += clamp(d, 0.002, 0.25);
+    t += clamp(d, 0.003, 0.28);
   }
 
   // Pitch → hue (map 400–2000 Hz into cyclic hue offset)
@@ -273,19 +283,21 @@ vec3 renderRay(vec2 uv) {
 
   vec3 col = vec3(0.01, 0.005, 0.02); // void
 
-  // Volumetric mist integration (cheap step march)
+  // Volumetric mist — fewer steps on low quality
   float mt = 0.0;
   float mistAcc = 0.0;
   vec3 mistCol = vec3(0.0);
-  for (int i = 0; i < 24; i++) {
+  int mistSteps = int(mix(6.0, 14.0, uQuality));
+  for (int i = 0; i < 14; i++) {
+    if (i >= mistSteps) break;
     vec3 mp = ro + rd * mt;
     float dens = mistSample(mp);
-    float a = dens * 0.08;
+    float a = dens * 0.1;
     vec3 mc = hsl2rgb(fract(hue + 0.15 + dens * 0.2), sat, 0.45 + uHat * 0.2);
     mistCol += (1.0 - mistAcc) * a * mc * (0.6 + uBloom * 0.5);
     mistAcc += (1.0 - mistAcc) * a;
-    mt += 0.22 + uHat * 0.05;
-    if (mistAcc > 0.95 || mt > min(t, 10.0)) break;
+    mt += 0.28 + uHat * 0.04;
+    if (mistAcc > 0.9 || mt > min(t, 8.0)) break;
   }
 
   if (hit > 0.5 && t < 12.0) {
@@ -319,33 +331,25 @@ vec3 renderRay(vec2 uv) {
 }
 
 void main() {
-  // Aspect-correct uv centered at 0
   vec2 res = uResolution;
   vec2 uv = (gl_FragCoord.xy - 0.5 * res) / res.y;
 
-  // Chromatic aberration: offset R/B by 808-scaled amount
-  float ca = uChromatic * (1.0 + uOnset808 * 3.5 + uBass808 * 1.5);
-  vec2 dir = normalize(uv + 1e-5);
+  // ONE ray only (triple CA raymarch was the biggest FPS killer)
+  vec3 col = renderRay(uv);
 
-  vec3 col;
-  col.r = renderRay(uv + dir * ca).r;
-  col.g = renderRay(uv).g;
-  col.b = renderRay(uv - dir * ca).b;
+  // Cheap chromatic fringe without extra raymarches
+  float ca = uChromatic * (1.0 + uOnset808 * 3.0 + uBass808 * 1.2);
+  float edge = length(uv);
+  col.r *= 1.0 + ca * 12.0 * edge;
+  col.b *= 1.0 - ca * 6.0 * edge;
 
-  // Optional video underlay (sampled in screen uv)
   if (uHasVideo > 0.5 && uVideoOpacity > 0.001) {
-    vec2 suv = gl_FragCoord.xy / res;
-    // Cover-fit-ish
-    vec3 vid = texture2D(uVideoTex, suv).rgb;
-    // Fractal sits on top: use luminance of fractal as soft mask
+    vec3 vid = texture2D(uVideoTex, gl_FragCoord.xy / res).rgb;
     float cover = smoothstep(0.02, 0.35, max(col.r, max(col.g, col.b)));
-    col = mix(vid * uVideoOpacity + col * (1.0 - uVideoOpacity * 0.5), col, cover);
     col = mix(vid, col, clamp(0.35 + cover * 0.65, 0.0, 1.0));
   }
 
-  // Tonemap + gamma
   col = col / (1.0 + col * 0.65);
   col = pow(clamp(col, 0.0, 1.0), vec3(0.92));
-
   gl_FragColor = vec4(col, 1.0);
 }

@@ -265,10 +265,24 @@ function clamp01(x) {
 }
 
 let idleT = 0;
+let lastFrameT = performance.now();
+let waveFrame = 0;
+let lastMeterT = 0;
 
-function frame() {
+// Quality slider → renderer
+window.addEventListener('dj-caat-quality', (e) => {
+  visual.setQuality(e.detail);
+});
+// Apply saved quality once
+visual.setQuality(bus.params.renderQuality ?? 0.7);
+
+function frame(now) {
   requestAnimationFrame(frame);
-  idleT += 0.016;
+  const dt = Math.min(0.05, (now - lastFrameT) / 1000);
+  lastFrameT = now;
+  idleT += dt;
+
+  visual.tickAdaptive(dt);
 
   let sample = audio.sample();
   if (!audio.element) {
@@ -287,14 +301,23 @@ function frame() {
   timeline.syncFromAudio();
   timeline.updateTextOverlay(sample);
   visual.render(sample);
-  updateMeters(sample);
-  updateTimeLabel();
-  if (audio.playing) {
+
+  // UI meters ~15fps is enough
+  if (now - lastMeterT > 66) {
+    updateMeters(sample);
+    updateTimeLabel();
+    const fpsEl = $('mFps');
+    if (fpsEl) fpsEl.textContent = `${Math.round(visual.fps)}·Q${visual._quality.toFixed(2)}`;
+    lastMeterT = now;
+  }
+
+  // Waveform ~10fps while playing
+  if (audio.playing && ++waveFrame % 6 === 0) {
     drawWaveform(audio);
   }
 }
 
-frame();
+requestAnimationFrame(frame);
 
 console.info(
   '%cDJ Caat Visual Engine',

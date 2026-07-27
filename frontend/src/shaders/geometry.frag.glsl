@@ -7,6 +7,7 @@ varying vec2 vUv;
 
 uniform float uTime;
 uniform vec2  uResolution;
+uniform float uQuality;
 uniform float uBass808;
 uniform float uOnset808;
 uniform float uPitchHz;
@@ -70,10 +71,10 @@ float sdOctahedron(vec3 p, float s) {
 
 // cheap torus knot path distance
 float sdTorusknot(vec3 p, float ra, float rb) {
-  // approximate via angular sweep samples
   float d = 1e5;
-  for (int i = 0; i < 24; i++) {
-    float a = float(i) / 24.0 * 6.2831853;
+  // 12 samples (was 24) — still reads as a knot
+  for (int i = 0; i < 12; i++) {
+    float a = float(i) / 12.0 * 6.2831853;
     float ca = cos(a), sa = sin(a);
     // (3,2) knot
     float r = ra + 0.35 * cos(3.0 * a);
@@ -137,14 +138,16 @@ void main() {
   float t = 0.0;
   float hit = 0.0;
   vec3 p;
-  for (int i = 0; i < 80; i++) {
+  int maxSteps = int(mix(40.0, 64.0, uQuality));
+  for (int i = 0; i < 64; i++) {
+    if (i >= maxSteps) break;
     p = ro + rd * t;
     float d = mapScene(p, morph);
-    if (d < 0.0015 * t || t > 10.0) {
+    if (d < 0.002 * t || t > 9.0) {
       hit = d < 0.03 ? 1.0 : 0.0;
       break;
     }
-    t += clamp(d, 0.002, 0.3);
+    t += clamp(d, 0.003, 0.32);
   }
 
   float pitchN = uPitchHz > 1.0 ? clamp((uPitchHz - 400.0) / 1600.0, 0.0, 1.0) : 0.0;
@@ -178,8 +181,8 @@ void main() {
   }
 
   // Orbiting light particles (spark constellation)
-  int lights = int(clamp(uGeoLightCount, 4.0, 24.0));
-  for (int i = 0; i < 24; i++) {
+  int lights = int(clamp(uGeoLightCount * mix(0.5, 1.0, uQuality), 4.0, 16.0));
+  for (int i = 0; i < 16; i++) {
     if (i >= lights) break;
     float id = float(i);
     float a = uTime * (0.5 + hash11(id) * 0.8) + id * 0.9 + uBeatPhase * 2.0;

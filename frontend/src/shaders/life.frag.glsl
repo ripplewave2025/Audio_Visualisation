@@ -8,6 +8,7 @@ varying vec2 vUv;
 
 uniform float uTime;
 uniform vec2  uResolution;
+uniform float uQuality;
 uniform float uBass808;
 uniform float uOnset808;
 uniform float uPitchHz;
@@ -75,7 +76,7 @@ void main() {
   float sc = max(uSidechain, 0.3);
 
   int nSpecies = int(clamp(uLifeSpecies, 3.0, 6.0));
-  int count = int(mix(28.0, 70.0, clamp(uLifeDensity, 0.0, 1.0)));
+  int count = int(mix(18.0, 48.0, clamp(uLifeDensity, 0.0, 1.0) * mix(0.6, 1.0, uQuality)));
   float t = uTime * (0.35 + (max(uBpm, 100.0) / 140.0) * 0.25);
   t += uBeatPhase * 0.4;
 
@@ -83,7 +84,7 @@ void main() {
   float hue0 = fract(uHueBase + uHueFromPitch * pitchN * 0.5);
 
   // Pseudo particle-life: each particle orbits under summed forces from species centroids
-  for (int i = 0; i < 70; i++) {
+  for (int i = 0; i < 48; i++) {
     if (i >= count) break;
     float id = float(i) + 1.0;
     float sp = mod(id, float(nSpecies));
@@ -108,9 +109,9 @@ void main() {
     float sz = (0.014 + pitchN * 0.012 + uHat * 0.01) * (1.0 + uOnset808 * 0.5);
     vec3 neon = hsl2rgb(fract(hue0 + sp / float(nSpecies) * 0.45), clamp(uSaturation, 0.0, 1.0), 0.55);
 
-    int trails = int(clamp(floor(uLifeTrail * 4.0) + 1.0, 1.0, 5.0));
+    int trails = int(clamp(floor(uLifeTrail * 3.0 * uQuality) + 1.0, 1.0, 3.0));
     vec2 vel = vec2(-sin(ang), cos(ang)) * (0.3 + abs(fSelf));
-    for (int k = 0; k < 5; k++) {
+    for (int k = 0; k < 3; k++) {
       if (k >= trails) break;
       float fk = float(k) / float(max(trails, 1));
       vec2 p = pos - vel * fk * uLifeTrail * 0.1;
