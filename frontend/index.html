@@ -19,37 +19,25 @@
         </header>
 
         <section class="panel mode-panel">
-          <h2>Visual Mode</h2>
-          <div class="mode-grid" id="modeGrid" role="radiogroup" aria-label="Visual Mode">
-            <button type="button" class="mode-btn active" data-mode="fractal" title="Phonk Hyper-Fluid Fractal">
-              <span class="mode-name">Phonk Fractal</span>
-              <span class="mode-desc">4D Mandelbulb · fluid mist</span>
-            </button>
-            <button type="button" class="mode-btn" data-mode="singularity" title="Stable Singularity Black Hole">
-              <span class="mode-name">Singularity</span>
-              <span class="mode-desc">Black Hole · Accretion Disk</span>
-            </button>
-            <button type="button" class="mode-btn" data-mode="particles" title="Sci-Fi Particles">
-              <span class="mode-name">Sci-Fi Particles</span>
-              <span class="mode-desc">Neon trails · 808 explosions</span>
-            </button>
-            <button type="button" class="mode-btn" data-mode="earth" title="Dark Earth / Orbital">
-              <span class="mode-name">Dark Earth</span>
-              <span class="mode-desc">Atmosphere · night lights · ring</span>
-            </button>
-            <button type="button" class="mode-btn" data-mode="tunnel" title="Cyber Tunnel">
-              <span class="mode-name">Cyber Tunnel</span>
-              <span class="mode-desc">Infinite neon · BPM speed</span>
-            </button>
-            <button type="button" class="mode-btn" data-mode="life" title="Particle Life math">
-              <span class="mode-name">Particle Life</span>
-              <span class="mode-desc">Attraction math · species</span>
-            </button>
-            <button type="button" class="mode-btn" data-mode="geometry" title="Geometry Light">
-              <span class="mode-name">Geometry Light</span>
-              <span class="mode-desc">SDF forms · orbit sparks</span>
-            </button>
-          </div>
+          <h2>Visual Engine</h2>
+          <label class="mode-select-label">
+            Category
+            <select id="modeCategory" aria-label="Mode category">
+              <option value="All">All modes</option>
+              <option value="Signature">Signature</option>
+              <option value="Space">Space</option>
+              <option value="Particles">Particles</option>
+              <option value="Math">Math</option>
+              <option value="Classic">Classic</option>
+              <option value="Abstract">Abstract</option>
+            </select>
+          </label>
+          <label class="mode-select-label">
+            Mode
+            <select id="modeSelect" aria-label="Visual mode"></select>
+          </label>
+          <p class="mode-meta" id="modeMeta">—</p>
+          <div class="mode-quick" id="modeQuick" aria-label="Quick picks"></div>
         </section>
 
         <section class="panel audio-editor-panel">

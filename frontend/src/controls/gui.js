@@ -4,7 +4,7 @@
  */
 
 import GUI from 'lil-gui';
-import { VISUAL_MODES } from './parameterBus.js';
+import { MODE_CATALOG, getModeIds } from '../modes/catalog.js';
 
 /**
  * @param {import('./parameterBus.js').ParameterBus} bus
@@ -15,9 +15,8 @@ export function buildGui(bus, hooks = {}) {
   const gui = new GUI({ title: 'DJ Caat · Params' });
   const p = bus.params;
 
-  const modeLabels = Object.fromEntries(VISUAL_MODES.map((m) => [m.id, m.label]));
-  // lil-gui dropdown: map display labels → ids is awkward; use ids with names
-  const modeOptions = VISUAL_MODES.map((m) => m.id);
+  const modeLabels = Object.fromEntries(MODE_CATALOG.map((m) => [m.id, m.label]));
+  const modeOptions = getModeIds();
 
   const rootMode = gui
     .add(p, 'visualMode', modeOptions)
@@ -27,9 +26,8 @@ export function buildGui(bus, hooks = {}) {
       applyFolderVisibility(v);
       onMode?.(v);
     });
-  // Friendly names via _names if available
   try {
-    rootMode._names = VISUAL_MODES.map((m) => m.label);
+    rootMode._names = MODE_CATALOG.map((m) => m.label);
   } catch {
     /* ignore */
   }
@@ -135,6 +133,13 @@ export function buildGui(bus, hooks = {}) {
   geometry.add(p, 'geoSpin', 0, 2, 0.01).name('Spin').onChange((v) => bus.set('geoSpin', v));
   geometry.add(p, 'geoGlow', 0, 2, 0.01).name('Glow').onChange((v) => bus.set('geoGlow', v));
 
+  // Shared controls for expandable FX pack modes
+  const fx = gui.addFolder('FX Shape (shared)');
+  fx.add(p, 'fxIntensity', 0, 2, 0.01).name('Intensity').onChange((v) => bus.set('fxIntensity', v));
+  fx.add(p, 'fxScale', 0.2, 2.5, 0.01).name('Scale').onChange((v) => bus.set('fxScale', v));
+  fx.add(p, 'fxDetail', 0, 1, 0.01).name('Detail').onChange((v) => bus.set('fxDetail', v));
+  fx.add(p, 'fxSymmetry', 0, 1, 0.01).name('Symmetry').onChange((v) => bus.set('fxSymmetry', v));
+
   // ── FL Studio Audio Editor Folder ───────────────────────────────────────────
   const audioEd = gui.addFolder('FL Studio · Audio DSP');
   audioEd.add(p, 'tempoSpeed', 0.5, 2.0, 0.01).name('Tempo Speed').onChange((v) => bus.set('tempoSpeed', v));
@@ -202,6 +207,11 @@ export function buildGui(bus, hooks = {}) {
     folder.domElement.style.display = visible ? '' : 'none';
   }
 
+  const FX_MODES = new Set([
+    'spectrum', 'kaleido', 'plasma', 'warp', 'aurora', 'liquid',
+    'lattice', 'rings', 'scope', 'voronoi', 'matrix', 'ripple',
+  ]);
+
   function applyFolderVisibility(mode) {
     setFolderVisible(singularity, mode === 'singularity');
     setFolderVisible(frac, mode === 'fractal');
@@ -211,6 +221,7 @@ export function buildGui(bus, hooks = {}) {
     setFolderVisible(tunnel, mode === 'tunnel');
     setFolderVisible(life, mode === 'life');
     setFolderVisible(geometry, mode === 'geometry');
+    setFolderVisible(fx, FX_MODES.has(mode));
   }
 
   applyFolderVisibility(p.visualMode || 'fractal');

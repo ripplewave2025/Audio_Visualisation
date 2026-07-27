@@ -4,7 +4,13 @@
  * Audio context is never reset on mode switch.
  */
 
-import { ParameterBus, VISUAL_MODES } from './controls/parameterBus.js';
+import { ParameterBus } from './controls/parameterBus.js';
+import {
+  MODE_CATALOG,
+  MODE_CATEGORIES,
+  getMode,
+  getModesByCategory,
+} from './modes/catalog.js';
 import { buildGui } from './controls/gui.js';
 import { AudioEngine } from './audio/engine.js';
 import { FractalRenderer } from './three/renderer.js';
@@ -43,45 +49,123 @@ const guiApi = buildGui(bus, {
   onAspect: (v) => exporter.applyAspect(v),
   onMode: (mode) => {
     visual.setMode(mode);
-    syncModeButtons(mode);
+    syncModeUI(mode);
     const el = document.getElementById('recordStatus');
-    if (el) {
-      const label = VISUAL_MODES.find((m) => m.id === mode)?.label || mode;
-      el.textContent = `Mode · ${label}`;
-    }
+    if (el) el.textContent = `Mode · ${getMode(mode).label}`;
   },
   onPreset: (t) => {
     const el = document.getElementById('recordStatus');
     if (el) el.textContent = `Preset ${t}`;
     visual.setMode(bus.params.visualMode);
-    syncModeButtons(bus.params.visualMode);
+    syncModeUI(bus.params.visualMode);
   },
 });
 
-// ── Visual mode UI (left panel) — instant switch, audio untouched ────────────
+// ── Visual mode dropdown + quick chips ───────────────────────────────────────
 
-function syncModeButtons(mode) {
-  document.querySelectorAll('.mode-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
+const modeSelect = document.getElementById('modeSelect');
+const modeCategory = document.getElementById('modeCategory');
+const modeMeta = document.getElementById('modeMeta');
+const modeQuick = document.getElementById('modeQuick');
+
+const QUICK_IDS = [
+  'fractal',
+  'singularity',
+  'spectrum',
+  'kaleido',
+  'warp',
+  'tunnel',
+  'particles',
+  'rings',
+];
+
+function fillModeSelect(category = 'All', keepId) {
+  if (!modeSelect) return;
+  const list = getModesByCategory(category);
+  modeSelect.innerHTML = '';
+  for (const m of list) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = `${m.label}`;
+    modeSelect.appendChild(opt);
+  }
+  const prefer = keepId && list.some((m) => m.id === keepId) ? keepId : list[0]?.id;
+  if (prefer) modeSelect.value = prefer;
+}
+
+function updateModeMeta(mode) {
+  const m = getMode(mode);
+  if (modeMeta) {
+    modeMeta.textContent = `${m.category} · ${m.desc}${m.inspired ? ` · ${m.inspired}` : ''}`;
+  }
+}
+
+function syncModeUI(mode) {
+  const m = getMode(mode);
+  if (modeCategory && modeCategory.value !== 'All' && modeCategory.value !== m.category) {
+    // keep filter; if mode not in filter, switch to All
+    const inFilter = getModesByCategory(modeCategory.value).some((x) => x.id === mode);
+    if (!inFilter) {
+      modeCategory.value = 'All';
+      fillModeSelect('All', mode);
+    }
+  } else if (modeSelect && ![...modeSelect.options].some((o) => o.value === mode)) {
+    fillModeSelect(modeCategory?.value || 'All', mode);
+  }
+  if (modeSelect) modeSelect.value = mode;
+  updateModeMeta(mode);
+  modeQuick?.querySelectorAll('.mode-chip').forEach((chip) => {
+    chip.classList.toggle('active', chip.dataset.mode === mode);
   });
 }
 
 function setVisualMode(mode) {
-  if (!VISUAL_MODES.some((m) => m.id === mode)) return;
+  if (!MODE_CATALOG.some((m) => m.id === mode)) return;
   bus.set('visualMode', mode);
   visual.setMode(mode);
   guiApi.applyFolderVisibility(mode);
   guiApi.refresh();
-  syncModeButtons(mode);
+  syncModeUI(mode);
 }
 
-document.getElementById('modeGrid')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('.mode-btn');
-  if (!btn?.dataset?.mode) return;
-  setVisualMode(btn.dataset.mode);
-});
+// Build category select extras (already in HTML) + mode list
+if (modeCategory) {
+  // Ensure all categories present
+  for (const c of MODE_CATEGORIES) {
+    if (![...modeCategory.options].some((o) => o.value === c)) {
+      const o = document.createElement('option');
+      o.value = c;
+      o.textContent = c;
+      modeCategory.appendChild(o);
+    }
+  }
+  modeCategory.addEventListener('change', () => {
+    fillModeSelect(modeCategory.value, bus.params.visualMode);
+    const next = modeSelect?.value;
+    if (next) setVisualMode(next);
+  });
+}
 
-syncModeButtons(bus.params.visualMode || 'fractal');
+fillModeSelect('All', bus.params.visualMode || 'fractal');
+modeSelect?.addEventListener('change', () => setVisualMode(modeSelect.value));
+
+// Quick-pick chips
+if (modeQuick) {
+  modeQuick.innerHTML = '';
+  for (const id of QUICK_IDS) {
+    const m = getMode(id);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'mode-chip';
+    chip.dataset.mode = id;
+    chip.textContent = m.label.replace('Phonk ', '').split(' ')[0];
+    chip.title = m.label;
+    chip.addEventListener('click', () => setVisualMode(id));
+    modeQuick.appendChild(chip);
+  }
+}
+
+syncModeUI(bus.params.visualMode || 'fractal');
 
 // ── DOM wiring ───────────────────────────────────────────────────────────────
 
@@ -322,8 +406,8 @@ requestAnimationFrame(frame);
 console.info(
   '%cDJ Caat Visual Engine',
   'color:#ff2d6a;font-weight:bold',
-  '\nModes:',
-  VISUAL_MODES.map((m) => m.id).join(' | '),
+  `\n${MODE_CATALOG.length} modes:`,
+  MODE_CATALOG.map((m) => m.id).join(' | '),
   '\nAspects:',
   Object.keys(ASPECT_PRESETS).join(', '),
 );

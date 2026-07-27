@@ -4,6 +4,7 @@
  */
 
 import * as THREE from 'three';
+import { MODE_CATALOG, getMode } from '../modes/catalog.js';
 import vert from '../shaders/fractal.vert.glsl';
 import fragFractal from '../shaders/fractal.frag.glsl';
 import fragSingularity from '../shaders/singularity.frag.glsl';
@@ -12,7 +13,20 @@ import fragEarth from '../shaders/earth.frag.glsl';
 import fragTunnel from '../shaders/tunnel.frag.glsl';
 import fragLife from '../shaders/life.frag.glsl';
 import fragGeometry from '../shaders/geometry.frag.glsl';
+import fragSpectrum from '../shaders/spectrum.frag.glsl';
+import fragKaleido from '../shaders/kaleido.frag.glsl';
+import fragPlasma from '../shaders/plasma.frag.glsl';
+import fragWarp from '../shaders/warp.frag.glsl';
+import fragAurora from '../shaders/aurora.frag.glsl';
+import fragLiquid from '../shaders/liquid.frag.glsl';
+import fragLattice from '../shaders/lattice.frag.glsl';
+import fragRings from '../shaders/rings.frag.glsl';
+import fragScope from '../shaders/scope.frag.glsl';
+import fragVoronoi from '../shaders/voronoi.frag.glsl';
+import fragMatrix from '../shaders/matrix.frag.glsl';
+import fragRipple from '../shaders/ripple.frag.glsl';
 
+/** id → fragment source (lazy materials still compile on first use) */
 const MODE_FRAG = {
   fractal: fragFractal,
   singularity: fragSingularity,
@@ -21,18 +35,31 @@ const MODE_FRAG = {
   tunnel: fragTunnel,
   life: fragLife,
   geometry: fragGeometry,
+  spectrum: fragSpectrum,
+  kaleido: fragKaleido,
+  plasma: fragPlasma,
+  warp: fragWarp,
+  aurora: fragAurora,
+  liquid: fragLiquid,
+  lattice: fragLattice,
+  rings: fragRings,
+  scope: fragScope,
+  voronoi: fragVoronoi,
+  matrix: fragMatrix,
+  ripple: fragRipple,
 };
 
-/** Heavier modes get lower default pixel budgets */
-const MODE_BASE_DPR = {
-  fractal: 1.1,
-  singularity: 1.35,
-  particles: 1.5,
-  earth: 1.25,
-  tunnel: 1.5,
-  life: 1.45,
-  geometry: 1.25,
-};
+/** DPR budget from catalog (fallback 1.35) */
+function modeDpr(mode) {
+  return getMode(mode).dpr ?? 1.35;
+}
+
+// Validate catalog vs shaders at boot
+for (const m of MODE_CATALOG) {
+  if (!MODE_FRAG[m.id]) {
+    console.warn(`[VisualRenderer] Catalog mode "${m.id}" has no shader import`);
+  }
+}
 
 const FALLBACK_FRAG = /* glsl */ `
 precision mediump float;
@@ -111,6 +138,11 @@ function makeSharedUniforms(dummyTex) {
     uGeoLightCount: { value: 10 },
     uGeoSpin: { value: 1.0 },
     uGeoGlow: { value: 1.1 },
+    // Shared FX pack (spectrum/kaleido/plasma/…)
+    uFxIntensity: { value: 1.0 },
+    uFxScale: { value: 1.0 },
+    uFxDetail: { value: 0.55 },
+    uFxSymmetry: { value: 0.5 },
   };
 }
 
@@ -200,10 +232,9 @@ export class FractalRenderer {
   }
 
   _baseDprFor(mode) {
-    let d = MODE_BASE_DPR[mode] ?? 1.25;
+    let d = modeDpr(mode);
     if (this._isMobile) d = Math.min(d, 1.15);
     const q = this._quality;
-    // quality 0.4 → ~0.7× dpr, quality 1 → full base
     return Math.max(0.75, d * (0.55 + 0.45 * q));
   }
 

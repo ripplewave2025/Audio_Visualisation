@@ -3,23 +3,22 @@
  * Single source of truth for DSP, visual modes, camera, export.
  */
 
-const STORAGE_KEY = 'dj-caat-phonk-params-v2';
+import { MODE_CATALOG } from '../modes/catalog.js';
+
+const STORAGE_KEY = 'dj-caat-phonk-params-v3';
 
 /** @typedef {'sin'|'square'|'tri'|'abs'} FoldFormula */
 /** @typedef {'9:16'|'1:1'|'16:9'} AspectPreset */
-/** @typedef {'fractal'|'singularity'|'particles'|'earth'|'tunnel'|'life'|'geometry'} VisualMode */
 
 export const FOLD_MODE_INDEX = { sin: 0, square: 1, tri: 2, abs: 3 };
 
-export const VISUAL_MODES = [
-  { id: 'fractal', label: 'Phonk Fractal' },
-  { id: 'singularity', label: 'Stable Singularity' },
-  { id: 'particles', label: 'Sci-Fi Particles' },
-  { id: 'earth', label: 'Dark Earth / Orbital' },
-  { id: 'tunnel', label: 'Cyber Tunnel' },
-  { id: 'life', label: 'Particle Life' },
-  { id: 'geometry', label: 'Geometry Light' },
-];
+/** @deprecated use MODE_CATALOG — kept for main.js imports */
+export const VISUAL_MODES = MODE_CATALOG.map((m) => ({
+  id: m.id,
+  label: m.label,
+  category: m.category,
+  desc: m.desc,
+}));
 
 export function createDefaultParams() {
   return {
@@ -126,6 +125,12 @@ export function createDefaultParams() {
     geoLightCount: 12,
     geoSpin: 1.0,
     geoGlow: 1.1,
+
+    // Shared FX pack (new expandable modes)
+    fxIntensity: 1.0,
+    fxScale: 1.0,
+    fxDetail: 0.55,
+    fxSymmetry: 0.55, // kaleido segments etc.
 
     // Export
     aspect: /** @type {AspectPreset} */ ('9:16'),
@@ -268,6 +273,12 @@ export class ParameterBus {
       uGeoLightCount: p.geoLightCount,
       uGeoSpin: p.geoSpin,
       uGeoGlow: p.geoGlow,
+
+      // FX pack
+      uFxIntensity: p.fxIntensity,
+      uFxScale: p.fxScale,
+      uFxDetail: p.fxDetail,
+      uFxSymmetry: p.fxSymmetry,
     };
   }
 }
